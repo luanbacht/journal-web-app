@@ -62,9 +62,9 @@ body {
 
   .toolbar-pill {
     border: 1px solid rgba(111, 133, 117, 0.14);
-    background: rgba(255, 251, 245, 0.78);
-    box-shadow: 0 10px 25px rgba(77, 63, 46, 0.04);
-    backdrop-filter: blur(14px);
+    background: rgba(255, 251, 245, 0.52);
+    box-shadow: 0 10px 25px rgba(77, 63, 46, 0.025);
+    backdrop-filter: blur(16px);
   }
 
   .history-nav-button {
@@ -74,17 +74,18 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    color: #5a5148;
+    color: rgba(90, 81, 72, 0.74);
     transition:
       background-color 160ms ease,
       color 160ms ease,
+      opacity 160ms ease,
       transform 160ms ease,
       box-shadow 160ms ease;
   }
 
   .history-nav-button:hover {
     transform: translateY(-0.5px);
-    background: rgba(255, 251, 245, 0.94);
+    background: rgba(255, 251, 245, 0.72);
     color: #3f392f;
     box-shadow: 0 10px 20px rgba(77, 63, 46, 0.06);
   }
