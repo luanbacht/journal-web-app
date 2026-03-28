@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id          String             @id @db.Uuid
+  email       String             @unique
+  username    String?            @unique
+  fullName    String?
+  avatarUrl   String?
+  timezone    String             @default("Asia/Ho_Chi_Minh")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  entries     JournalEntry[]
+  summaries   WeeklyAISummary[]
+  settings    UserSettings?
+}
+
+model JournalEntry {
+  id           String      @id @default(uuid()) @db.Uuid
+  profileId    String      @db.Uuid
+  title        String
+  content      String      @db.Text
+  moodScore    Int?
+  energyScore  Int?
+  stressScore  Int?
+  isPrivate    Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  profile      Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  tags         EntryTag[]
+}
+
+model Tag {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  entries   EntryTag[]
+}
+
+model EntryTag {
+  entryId String       @db.Uuid
+  tagId   String       @db.Uuid
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag     Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, tagId])
+}
+
+model WeeklyAISummary {
+  id          String    @id @default(uuid()) @db.Uuid
+  profileId   String    @db.Uuid
+  weekStart   DateTime
+  weekEnd     DateTime
+  summary     String    @db.Text
+  moodTrend   String?
+  wins        String?   @db.Text
+  challenges  String?   @db.Text
+  createdAt   DateTime  @default(now())
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model UserSettings {
+  profileId      String   @id @db.Uuid
+  reminderTime   String?
+  aiOptIn        Boolean  @default(true)
+  weeklyEmail    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f1e8;
+  --foreground: #312c27;
+  --paper: rgba(255, 251, 245, 0.84);
+  --paper-strong: rgba(255, 251, 245, 0.94);
+  --line: rgba(107, 95, 79, 0.16);
+  --muted: #7d7268;
+  --accent: #6f8575;
+  --accent-soft: #e4ebe4;
+  --accent-ink: #455649;
+  --gold-soft: #b79e74;
+  --shadow-soft: 0 22px 60px rgba(77, 63, 46, 0.07);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body-sans);
+  --font-serif: var(--font-display-serif);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .journal-shell {
+    background:
+      radial-gradient(circle at top left, rgba(214, 223, 211, 0.42), transparent 28%),
+      radial-gradient(circle at top right, rgba(229, 220, 207, 0.54), transparent 24%),
+      linear-gradient(180deg, #faf5ee 0%, #f7f1e8 42%, #f5eee4 100%);
+  }
+
+  .journal-paper {
+    background:
+      linear-gradient(180deg, rgba(255, 251, 245, 0.97), rgba(255, 249, 242, 0.92)),
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 35%);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .journal-grain {
+    position: relative;
+  }
+
+  .journal-grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+      radial-gradient(rgba(120, 104, 84, 0.045) 0.7px, transparent 0.7px);
+    background-size: 12px 12px;
+    opacity: 0.35;
+  }
+
+  .toolbar-pill {
+    border: 1px solid rgba(111, 133, 117, 0.14);
+    background: rgba(255, 251, 245, 0.78);
+    box-shadow: 0 10px 25px rgba(77, 63, 46, 0.04);
+    backdrop-filter: blur(14px);
+  }
+
+  .soft-button {
+    border: 1px solid rgba(111, 133, 117, 0.16);
+    background: rgba(255, 251, 245, 0.82);
+    color: #5a5148;
+  }
+
+  .soft-button:hover {
+    background: rgba(255, 251, 245, 0.96);
+  }
+
+  .accent-button {
+    background: #6f8575;
+    color: #fcfaf6;
+    box-shadow: 0 10px 24px rgba(79, 98, 84, 0.16);
+  }
+
+  .accent-button:hover {
+    background: #667b6c;
+  }
+
+  .serif-display {
+    font-family: var(--font-display-serif), "Times New Roman", serif;
+    letter-spacing: -0.015em;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .hand-accent {
+    font-family: var(--font-display-serif), "Times New Roman", serif;
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+
+  .ink-muted {
+    color: var(--muted);
+  }
+}
