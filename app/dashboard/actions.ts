@@ -143,6 +143,13 @@ function buildChallenges(average: number | null, topThemes: string[]) {
   return "Khó khăn lớn nhất có lẽ chưa nằm ở một sự kiện cụ thể, mà ở việc cảm xúc và suy nghĩ đang hơi rải ra. Một chút chậm lại có thể sẽ giúp bạn nhìn mọi thứ rõ hơn.";
 }
 
+type WeeklyEntry = {
+  title: string;
+  content: string;
+  moodScore: number | null;
+  createdAt: Date;
+};
+
 export async function generateWeeklySummary() {
   const supabase = await createClient();
   const {
@@ -167,7 +174,7 @@ export async function generateWeeklySummary() {
   const weekStart = addDays(today, -6);
   const weekEnd = addDays(today, 1);
 
-  const entries = await prisma.journalEntry.findMany({
+  const entries: WeeklyEntry[] = await prisma.journalEntry.findMany({
     where: {
       profileId: profile.id,
       createdAt: {
