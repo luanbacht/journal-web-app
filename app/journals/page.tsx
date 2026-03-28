@@ -32,6 +32,19 @@ function getDateRange(dateValue: string) {
   return { start, end };
 }
 
+type JournalListItem = {
+  id: string;
+  profileId: string;
+  title: string;
+  content: string;
+  moodScore: number | null;
+  energyScore: number | null;
+  stressScore: number | null;
+  isPrivate: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export default async function JournalsPage({
   searchParams,
 }: {
@@ -62,7 +75,7 @@ export default async function JournalsPage({
 
   const dateRange = trimmedDate ? getDateRange(trimmedDate) : null;
 
-  const journals = await prisma.journalEntry.findMany({
+  const journals: JournalListItem[] = await prisma.journalEntry.findMany({
     where: {
       profileId: profile.id,
       ...(keyword
@@ -208,7 +221,7 @@ export default async function JournalsPage({
             </div>
           ) : (
               <div className="grid gap-4 sm:gap-5">
-              {journals.map((journal) => (
+                {journals.map((journal: JournalListItem) => (
                 <Link
                   key={journal.id}
                   href={`/journals/${journal.id}`}
