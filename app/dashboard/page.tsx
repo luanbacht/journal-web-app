@@ -36,7 +36,7 @@ function truncate(text: string, maxLength: number) {
 
 function countStreak(entryDates: Date[]) {
   const uniqueDays = new Set(
-    entryDates.map((date) => startOfDay(date).toISOString()),
+    entryDates.map((date: Date) => startOfDay(date).toISOString()),
   );
 
   let streak = 0;
@@ -152,10 +152,16 @@ export default async function DashboardPage() {
       }),
     ]);
 
-  const weeklyMoodAverage = averageMood(weekEntries.map((entry) => entry.moodScore));
-  const currentStreak = countStreak(allEntries.map((entry) => entry.createdAt));
+  const weeklyMoodAverage = averageMood(
+    weekEntries.map((entry: { createdAt: Date; moodScore: number | null }) => entry.moodScore),
+  );
+  const currentStreak = countStreak(
+    allEntries.map((entry: { createdAt: Date; moodScore: number | null }) => entry.createdAt),
+  );
   const daysWrittenThisWeek = new Set(
-    weekEntries.map((entry) => startOfDay(entry.createdAt).toISOString()),
+    weekEntries.map((entry: { createdAt: Date; moodScore: number | null }) =>
+      startOfDay(entry.createdAt).toISOString(),
+    ),
   ).size;
 
   return (
@@ -268,7 +274,18 @@ export default async function DashboardPage() {
                   Bạn chưa có bài journal nào để hiển thị ở đây.
                 </p>
               ) : (
-                recentJournals.map((journal) => (
+                recentJournals.map((journal: {
+                  id: string;
+                  title: string;
+                  content: string;
+                  createdAt: Date;
+                  moodScore: number | null;
+                  energyScore: number | null;
+                  stressScore: number | null;
+                  isPrivate: boolean;
+                  updatedAt: Date;
+                  profileId: string;
+                }) => (
                   <Link
                     key={journal.id}
                     href={`/journals/${journal.id}`}

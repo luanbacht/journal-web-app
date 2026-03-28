@@ -72,18 +72,20 @@ function collectKeywordHits(entries: Array<{ title: string; content: string }>) 
   ];
 
   const normalizedText = entries
-    .map((entry) => `${entry.title} ${entry.content}`.toLowerCase())
+    .map((entry: { title: string; content: string }) =>
+      `${entry.title} ${entry.content}`.toLowerCase(),
+    )
     .join(" ");
 
   return keywordGroups
-    .map((group) => ({
+    .map((group: { label: string; words: string[] }) => ({
       label: group.label,
       count: group.words.reduce(
         (sum, word) => sum + (normalizedText.includes(word) ? 1 : 0),
         0,
       ),
     }))
-    .filter((group) => group.count > 0)
+    .filter((group: { label: string; count: number }) => group.count > 0)
     .sort((a, b) => b.count - a.count);
 }
 
@@ -198,12 +200,12 @@ export async function generateWeeklySummary() {
   }
 
   const daysWritten = new Set(
-    entries.map((entry) => startOfDay(entry.createdAt).toISOString()),
+    entries.map((entry: WeeklyEntry) => startOfDay(entry.createdAt).toISOString()),
   ).size;
-  const average = averageMood(entries.map((entry) => entry.moodScore));
+  const average = averageMood(entries.map((entry: WeeklyEntry) => entry.moodScore));
   const topThemes = collectKeywordHits(entries)
     .slice(0, 2)
-    .map((item) => item.label);
+    .map((item: { label: string; count: number }) => item.label);
 
   const summary = buildSummary({
     entryCount: entries.length,
