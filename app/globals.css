@@ -67,6 +67,54 @@ body {
     backdrop-filter: blur(16px);
   }
 
+  .history-nav-shell {
+    position: fixed;
+    z-index: 40;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    opacity: 0.22;
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease,
+      left 220ms ease,
+      top 220ms ease;
+  }
+
+  .history-nav-shell:active {
+    cursor: grabbing;
+  }
+
+  .history-nav-shell-active {
+    opacity: 0.88;
+    transform: scale(1.01);
+  }
+
+  .history-nav-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    transition:
+      padding 180ms ease,
+      gap 180ms ease,
+      border-radius 180ms ease;
+  }
+
+  .history-nav-container-expanded {
+    padding-inline: 0.45rem;
+  }
+
+  .history-nav-dock-left {
+    border-top-left-radius: 9999px;
+    border-bottom-left-radius: 9999px;
+  }
+
+  .history-nav-dock-right {
+    border-top-right-radius: 9999px;
+    border-bottom-right-radius: 9999px;
+  }
+
   .history-nav-button {
     display: inline-flex;
     height: 2.5rem;
