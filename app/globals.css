@@ -67,6 +67,36 @@ body {
     backdrop-filter: blur(14px);
   }
 
+  .history-nav-button {
+    display: inline-flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: #5a5148;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .history-nav-button:hover {
+    transform: translateY(-0.5px);
+    background: rgba(255, 251, 245, 0.94);
+    color: #3f392f;
+    box-shadow: 0 10px 20px rgba(77, 63, 46, 0.06);
+  }
+
+  .history-nav-button:focus-visible {
+    outline: none;
+    background: rgba(255, 251, 245, 0.98);
+    box-shadow:
+      0 0 0 3px rgba(111, 133, 117, 0.18),
+      0 10px 20px rgba(77, 63, 46, 0.06);
+  }
+
   .soft-button {
     border: 1px solid rgba(111, 133, 117, 0.16);
     background: rgba(255, 251, 245, 0.82);
