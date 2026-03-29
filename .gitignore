@@ -44,3 +44,4 @@ next-env.d.ts
 
 # packaged desktop app artifacts
 /Journal Day-win32-x64/
+/desktop-build/

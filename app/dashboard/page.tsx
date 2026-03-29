@@ -184,24 +184,26 @@ export default async function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="soft-button w-full rounded-full px-5 py-3 text-sm font-medium transition sm:w-auto"
+            <div className="flex w-full max-w-[22rem] flex-col gap-3 sm:max-w-none sm:items-end">
+              <div className="grid w-full gap-3 sm:grid-cols-2">
+                <form action={signOut} className="w-full">
+                  <button
+                    type="submit"
+                    className="soft-button w-full rounded-full px-5 py-3 text-sm font-medium transition"
+                  >
+                    Đăng xuất
+                  </button>
+                </form>
+                <Link
+                  href="/journals"
+                  className="soft-button inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition"
                 >
-                  Đăng xuất
-                </button>
-              </form>
-              <Link
-                href="/journals"
-                className="soft-button rounded-full px-5 py-3 text-sm font-medium transition"
-              >
-                Xem tất cả journal
-              </Link>
+                  Xem tất cả journal
+                </Link>
+              </div>
               <Link
                 href="/journals/new"
-                className="accent-button rounded-full px-5 py-3 text-sm font-medium transition"
+                className="accent-button inline-flex w-full items-center justify-center rounded-full px-6 py-3.5 text-sm font-medium transition sm:w-full"
               >
                 Viết journal mới
               </Link>
