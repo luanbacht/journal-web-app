@@ -65,11 +65,16 @@ model WeeklyAISummary {
 }
 
 model UserSettings {
-  profileId      String   @id @db.Uuid
-  reminderTime   String?
-  aiOptIn        Boolean  @default(true)
-  weeklyEmail    Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId             String   @id @db.Uuid
+  reminderTime          String?
+  aiOptIn               Boolean  @default(true)
+  weeklyEmail           Boolean  @default(false)
+  journalThemeMode      String?
+  journalWritingMode    String?
+  journalBackgroundImage String? @db.Text
+  journalTemplates      Json?
+  journalCardFields     Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  profile               Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }

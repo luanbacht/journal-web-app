@@ -4,6 +4,14 @@ import GenerateSummaryButton from "@/app/dashboard/generate-summary-button";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 
+async function signOut() {
+  "use server";
+
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/sign-in");
+}
+
 function startOfDay(date: Date) {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
@@ -177,6 +185,14 @@ export default async function DashboardPage() {
             </div>
 
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="soft-button w-full rounded-full px-5 py-3 text-sm font-medium transition sm:w-auto"
+                >
+                  Đăng xuất
+                </button>
+              </form>
               <Link
                 href="/journals"
                 className="soft-button rounded-full px-5 py-3 text-sm font-medium transition"

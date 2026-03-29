@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import JournalComposer, {
   type CardFieldConfig,
@@ -19,11 +19,17 @@ type JournalWorkspaceSettings = {
   templates: TemplateOption[];
   cardFields: CardFieldConfig[];
 };
+type LocalWorkspaceSettings = Omit<JournalWorkspaceSettings, "backgroundImage"> & {
+  hasBackgroundImage: boolean;
+};
 type ConfigSheetProps = {
   darkMode: boolean;
+  isSaving: boolean;
+  saveLabel: string;
   templates: TemplateOption[];
   cardFields: CardFieldConfig[];
   onClose: () => void;
+  onSave: () => void;
   onTemplatesChange: (templates: TemplateOption[]) => void;
   onCardFieldsChange: (fields: CardFieldConfig[]) => void;
 };
@@ -31,10 +37,13 @@ type ToolbarControlsProps = {
   darkMode: boolean;
   themeMode: ThemeMode;
   writingMode: WritingMode;
+  isSaving: boolean;
+  saveLabel: string;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onComposeNew: () => void;
   onOpenConfig: () => void;
   onResetBackground: () => void;
+  onSaveSettings: () => void;
   onThemeModeChange: (value: ThemeMode) => void;
   onWritingModeChange: (value: WritingMode) => void;
   mobile?: boolean;
@@ -50,6 +59,59 @@ const themeOptions: Option<ThemeMode>[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
+
+type JournalWorkspaceProps = {
+  initialSettings: JournalWorkspaceSettings;
+};
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Khong doc duoc anh nen."));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Khong doc duoc file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Khong tai duoc anh."));
+    image.src = dataUrl;
+  });
+}
+
+async function optimizeBackgroundImage(file: File) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(rawDataUrl);
+  const maxDimension = 1440;
+  const scale = Math.min(
+    1,
+    maxDimension / Math.max(image.naturalWidth, image.naturalHeight),
+  );
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return rawDataUrl;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL("image/webp", 0.8);
+}
 
 function ToolbarSegmented<T extends string>({
   label,
@@ -136,10 +198,13 @@ function ToolbarControls({
   darkMode,
   themeMode,
   writingMode,
+  isSaving,
+  saveLabel,
   fileInputRef,
   onComposeNew,
   onOpenConfig,
   onResetBackground,
+  onSaveSettings,
   onThemeModeChange,
   onWritingModeChange,
   mobile = false,
@@ -188,15 +253,30 @@ function ToolbarControls({
       <button type="button" onClick={onOpenConfig} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition ${secondaryButton}`}>
         <SettingsIcon /><span>Cấu hình journal card</span>
       </button>
+      <button
+        type="button"
+        onClick={onSaveSettings}
+        disabled={isSaving}
+        className={`rounded-full px-4 py-2 text-sm font-medium transition disabled:cursor-wait disabled:opacity-75 ${
+          darkMode
+            ? "border border-white/10 bg-[rgba(255,255,255,0.08)] text-[#f3ede4] hover:bg-[rgba(255,255,255,0.12)]"
+            : "border border-[var(--line)] bg-[rgba(255,251,245,0.86)] text-[#5d554d] hover:bg-[#f5eee4]"
+        }`}
+      >
+        {isSaving ? "Đang lưu..." : saveLabel}
+      </button>
     </>
   );
 }
 
 function ConfigSheet({
   darkMode,
+  isSaving,
+  saveLabel,
   templates,
   cardFields,
   onClose,
+  onSave,
   onTemplatesChange,
   onCardFieldsChange,
 }: ConfigSheetProps) {
@@ -281,6 +361,18 @@ function ConfigSheet({
         <div className="mt-8 flex flex-wrap gap-3">
           <button
             type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className={`rounded-full px-4 py-2.5 text-sm font-medium transition disabled:cursor-wait disabled:opacity-75 ${
+              darkMode
+                ? "border border-white/10 bg-[var(--accent-soft)] text-[#324038] hover:bg-[#dbe6d8]"
+                : "bg-[var(--accent)] text-[#fcfaf6] hover:bg-[#647a6a]"
+            }`}
+          >
+            {isSaving ? "Đang lưu..." : saveLabel}
+          </button>
+          <button
+            type="button"
             onClick={() => { onTemplatesChange(defaultTemplates); onCardFieldsChange(defaultCardFields); }}
             className={`rounded-full px-4 py-2.5 text-sm font-medium transition ${darkMode ? "bg-white/6 text-neutral-200 hover:bg-white/10" : "bg-[#f5efe6] text-[#5b5148] hover:bg-[#efe7dc]"}`}
           >
@@ -292,36 +384,164 @@ function ConfigSheet({
   );
 }
 
-export default function JournalWorkspace() {
+export default function JournalWorkspace({
+  initialSettings,
+}: JournalWorkspaceProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
-  const [writingMode, setWritingMode] = useState<WritingMode>("focus");
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<TemplateOption[]>(defaultTemplates);
-  const [cardFields, setCardFields] = useState<CardFieldConfig[]>(defaultCardFields);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMountedSyncRef = useRef(false);
+  const previousBackgroundImageRef = useRef<string | null>(
+    initialSettings.backgroundImage,
+  );
+  const saveRequestIdRef = useRef(0);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initialSettings.themeMode);
+  const [writingMode, setWritingMode] = useState<WritingMode>(
+    initialSettings.writingMode,
+  );
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(
+    initialSettings.backgroundImage,
+  );
+  const [templates, setTemplates] = useState<TemplateOption[]>(
+    initialSettings.templates,
+  );
+  const [cardFields, setCardFields] = useState<CardFieldConfig[]>(
+    initialSettings.cardFields,
+  );
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isMobileToolbarOpen, setIsMobileToolbarOpen] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("saved");
+  const [saveErrorMessage, setSaveErrorMessage] = useState("");
 
   useEffect(() => {
+    setThemeMode(initialSettings.themeMode);
+    setWritingMode(initialSettings.writingMode);
+    setBackgroundImage(initialSettings.backgroundImage);
+    setTemplates(initialSettings.templates);
+    setCardFields(initialSettings.cardFields);
+    previousBackgroundImageRef.current = initialSettings.backgroundImage;
+    setSaveState("saved");
+    setSaveErrorMessage("");
+  }, [initialSettings]);
+
+  const saveWorkspaceSettings = useCallback(
+    async (
+      settings: JournalWorkspaceSettings,
+      nextState: "saved" | "idle" = "saved",
+    ) => {
+      const requestId = saveRequestIdRef.current + 1;
+      saveRequestIdRef.current = requestId;
+      setSaveState("saving");
+
+      try {
+        const response = await fetch("/api/journal-workspace-settings", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(settings),
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(
+            payload?.error ?? "Khong luu duoc cau hinh journal.",
+          );
+        }
+
+        if (saveRequestIdRef.current === requestId) {
+          setSaveErrorMessage("");
+          setSaveState(nextState);
+        }
+      } catch (error) {
+        if (saveRequestIdRef.current === requestId) {
+          setSaveErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Khong luu duoc cau hinh journal.",
+          );
+          setSaveState("error");
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const settings = {
+      themeMode,
+      writingMode,
+      backgroundImage,
+      templates,
+      cardFields,
+    } satisfies JournalWorkspaceSettings;
+    const localSettings = {
+      themeMode,
+      writingMode,
+      hasBackgroundImage: Boolean(backgroundImage),
+      templates,
+      cardFields,
+    } satisfies LocalWorkspaceSettings;
+
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<JournalWorkspaceSettings>;
-      setThemeMode(parsed.themeMode === "dark" ? "dark" : "light");
-      setWritingMode(parsed.writingMode === "notebook" || parsed.writingMode === "cards" ? parsed.writingMode : "focus");
-      setBackgroundImage(parsed.backgroundImage ?? null);
-      setTemplates(Array.isArray(parsed.templates) && parsed.templates.length > 0 ? parsed.templates : defaultTemplates);
-      setCardFields(Array.isArray(parsed.cardFields) && parsed.cardFields.length > 0 ? parsed.cardFields : defaultCardFields);
-    } catch {}
-  }, []);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(localSettings));
+    } catch {
+      // Large images can exceed browser storage quota, so we keep the
+      // lightweight preferences in localStorage and rely on DB sync for
+      // the full background image payload.
+    }
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ themeMode, writingMode, backgroundImage, templates, cardFields } satisfies JournalWorkspaceSettings),
-    );
-  }, [themeMode, writingMode, backgroundImage, templates, cardFields]);
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    const shouldSaveImmediately =
+      previousBackgroundImageRef.current !== backgroundImage;
+    previousBackgroundImageRef.current = backgroundImage;
+
+    if (!hasMountedSyncRef.current) {
+      hasMountedSyncRef.current = true;
+      return;
+    }
+
+    setSaveState("idle");
+
+    saveTimerRef.current = setTimeout(() => {
+      void saveWorkspaceSettings(settings);
+    }, shouldSaveImmediately ? 0 : 350);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [themeMode, writingMode, backgroundImage, templates, cardFields, saveWorkspaceSettings]);
+
+  const saveStatusLabel =
+    saveState === "saved"
+      ? "Đã lưu"
+      : saveState === "error"
+        ? "Lưu lại"
+        : "Lưu cấu hình";
+
+  const handleManualSave = useCallback(() => {
+    const settings = {
+      themeMode,
+      writingMode,
+      backgroundImage,
+      templates,
+      cardFields,
+    } satisfies JournalWorkspaceSettings;
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+
+    void saveWorkspaceSettings(settings);
+  }, [themeMode, writingMode, backgroundImage, templates, cardFields, saveWorkspaceSettings]);
 
   const shellClasses = useMemo(
     () =>
@@ -357,9 +577,15 @@ export default function JournalWorkspace() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => typeof reader.result === "string" && setBackgroundImage(reader.result);
-          reader.readAsDataURL(file);
+          optimizeBackgroundImage(file)
+            .then((result) => {
+              setBackgroundImage(result);
+            })
+            .catch(() => {
+              void readFileAsDataUrl(file).then((result) => {
+                setBackgroundImage(result);
+              });
+            });
         }}
       />
 
@@ -369,10 +595,13 @@ export default function JournalWorkspace() {
             darkMode={themeMode === "dark"}
             themeMode={themeMode}
             writingMode={writingMode}
+            isSaving={saveState === "saving"}
+            saveLabel={saveStatusLabel}
             fileInputRef={fileInputRef}
             onComposeNew={() => router.push("/journals/new")}
             onOpenConfig={() => setIsConfigOpen(true)}
             onResetBackground={() => setBackgroundImage(null)}
+            onSaveSettings={handleManualSave}
             onThemeModeChange={setThemeMode}
             onWritingModeChange={setWritingMode}
           />
@@ -399,6 +628,8 @@ export default function JournalWorkspace() {
               darkMode={themeMode === "dark"}
               themeMode={themeMode}
               writingMode={writingMode}
+              isSaving={saveState === "saving"}
+              saveLabel={saveStatusLabel}
               fileInputRef={fileInputRef}
               onComposeNew={() => {
                 setIsMobileToolbarOpen(false);
@@ -409,6 +640,10 @@ export default function JournalWorkspace() {
                 setIsConfigOpen(true);
               }}
               onResetBackground={() => setBackgroundImage(null)}
+              onSaveSettings={() => {
+                setIsMobileToolbarOpen(false);
+                handleManualSave();
+              }}
               onThemeModeChange={setThemeMode}
               onWritingModeChange={(value) => {
                 setWritingMode(value);
@@ -421,6 +656,17 @@ export default function JournalWorkspace() {
       </div>
 
       <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:px-8 md:pb-24 md:pt-16">
+        {saveState === "error" && saveErrorMessage ? (
+          <div
+            className={`mx-auto mb-6 max-w-5xl rounded-[22px] border px-4 py-3 text-sm ${
+              themeMode === "dark"
+                ? "border-rose-400/20 bg-rose-950/30 text-rose-100"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+            }`}
+          >
+            Chưa lưu được cấu hình: {saveErrorMessage}
+          </div>
+        ) : null}
         {writingMode === "focus" && (
           <section className={`mx-auto max-w-5xl px-5 py-7 md:px-10 md:py-10 ${panelClasses}`}>
             <div className="mx-auto max-w-4xl">
@@ -470,9 +716,12 @@ export default function JournalWorkspace() {
       {isConfigOpen && (
         <ConfigSheet
           darkMode={themeMode === "dark"}
+          isSaving={saveState === "saving"}
+          saveLabel={saveStatusLabel}
           templates={templates}
           cardFields={cardFields}
           onClose={() => setIsConfigOpen(false)}
+          onSave={handleManualSave}
           onTemplatesChange={setTemplates}
           onCardFieldsChange={setCardFields}
         />

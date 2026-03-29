@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# packaged desktop app artifacts
+/Journal Day-win32-x64/
