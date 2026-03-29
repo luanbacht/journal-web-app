@@ -3,14 +3,19 @@
 import { useMemo, useRef, useState } from "react";
 import { createJournal } from "@/app/journals/actions";
 
-type TemplateOption = {
+export type TemplateOption = {
   id: string;
   label: string;
+  tag: string;
   description: string;
-  icon: string;
   group: string;
-  keywords: string[];
   content: string;
+};
+
+export type CardFieldConfig = {
+  id: string;
+  label: string;
+  placeholder: string;
 };
 
 type JournalComposerProps = {
@@ -18,17 +23,17 @@ type JournalComposerProps = {
   darkMode?: boolean;
   minEditorHeight?: string;
   mode?: "focus" | "notebook" | "cards";
+  templates?: TemplateOption[];
+  cardFields?: CardFieldConfig[];
 };
 
-const TEMPLATE_OPTIONS: TemplateOption[] = [
+export const defaultTemplates: TemplateOption[] = [
   {
     id: "muon-duoc-lang-nghe",
     label: "Muốn được lắng nghe",
-    description:
-      "Một mẫu nhẹ nhàng để nhìn lại niềm vui, nỗi buồn và sự biết ơn trong ngày.",
-    icon: "heart",
+    tag: "langnghe",
+    description: "Nhìn lại niềm vui, nỗi buồn và sự biết ơn trong ngày.",
     group: "Tâm sự",
-    keywords: ["lang nghe", "tam su", "cam xuc", "buon", "vui", "biet on"],
     content: `1. Hôm nay mình vui vì:
 2. Vậy tại sao hôm nay mình lại buồn:
 3. Hôm nay mình còn gặp khó khăn nào hông nhỉ:
@@ -38,11 +43,9 @@ const TEMPLATE_OPTIONS: TemplateOption[] = [
   {
     id: "nang-luong-hom-nay",
     label: "Năng lượng hôm nay",
-    description:
-      "Gợi ý để tự kiểm tra năng lượng, điều làm bạn mệt và điều đang tiếp sức cho bạn.",
-    icon: "spark",
+    tag: "nangluong",
+    description: "Tự kiểm tra năng lượng và điều đang tiếp sức cho bạn.",
     group: "Self-check",
-    keywords: ["nang luong", "met", "dong luc", "self check", "can bang"],
     content: `1. Hôm nay năng lượng của mình đang ở mức:
 2. Điều gì khiến mình thấy mệt:
 3. Điều gì đang tiếp thêm năng lượng cho mình:
@@ -52,10 +55,9 @@ const TEMPLATE_OPTIONS: TemplateOption[] = [
   {
     id: "sap-xep-suy-nghi",
     label: "Sắp xếp suy nghĩ",
-    description: "Dùng khi đầu óc đang rối và bạn muốn gỡ từng ý một thật chậm.",
-    icon: "list",
+    tag: "suynghi",
+    description: "Dùng khi đầu óc đang rối và bạn muốn gỡ từng ý một.",
     group: "Clarity",
-    keywords: ["roi", "suy nghi", "clarity", "sap xep", "qua tai"],
     content: `1. Điều đang khiến mình bận tâm nhất là:
 2. Mình đang lo điều gì sẽ xảy ra:
 3. Sự thật mình biết chắc ở lúc này là:
@@ -64,12 +66,30 @@ const TEMPLATE_OPTIONS: TemplateOption[] = [
   },
 ];
 
-const GROUP_ORDER = ["Tâm sự", "Self-check", "Clarity"];
+export const defaultCardFields: CardFieldConfig[] = [
+  {
+    id: "main-content",
+    label: "Nội dung chính",
+    placeholder: "Viết phần tâm sự chính của bạn ở đây...",
+  },
+  {
+    id: "gratitude",
+    label: "Mình biết ơn vì",
+    placeholder: "Hôm nay mình biết ơn vì...",
+  },
+  {
+    id: "reflection",
+    label: "Lời nhắn cho hôm nay",
+    placeholder: "Điều mình muốn nhắc bản thân là...",
+  },
+];
 
-function getIcon(icon: string) {
-  if (icon === "heart") return "♡";
-  if (icon === "spark") return "✦";
-  if (icon === "list") return "≣";
+const groupOrder = ["Tâm sự", "Self-check", "Clarity", "Riêng của bạn"];
+
+function iconForGroup(group: string) {
+  if (group === "Tâm sự") return "♡";
+  if (group === "Self-check") return "✦";
+  if (group === "Clarity") return "≣";
   return "•";
 }
 
@@ -78,11 +98,12 @@ export default function JournalComposer({
   darkMode = false,
   minEditorHeight,
   mode = "focus",
+  templates = defaultTemplates,
+  cardFields = defaultCardFields,
 }: JournalComposerProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [gratitude, setGratitude] = useState("");
-  const [reflection, setReflection] = useState("");
+  const [cardValues, setCardValues] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -94,45 +115,45 @@ export default function JournalComposer({
       return content;
     }
 
-    const sections = [
-      content.trim() ? `Nội dung chính:\n${content.trim()}` : "",
-      gratitude.trim() ? `Mình biết ơn vì:\n${gratitude.trim()}` : "",
-      reflection.trim() ? `Lời nhắn cho hôm nay:\n${reflection.trim()}` : "",
-    ].filter(Boolean);
-
-    return sections.join("\n\n");
-  }, [content, gratitude, reflection, mode]);
+    return cardFields
+      .map((field) => {
+        const value = cardValues[field.id]?.trim();
+        if (!value) return "";
+        return `${field.label}:\n${value}`;
+      })
+      .filter(Boolean)
+      .join("\n\n");
+  }, [cardFields, cardValues, content, mode]);
 
   const titleError = hasTriedSubmit && !title.trim();
   const contentError = hasTriedSubmit && !effectiveContent.trim();
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return templates;
 
-    if (!normalizedQuery) {
-      return TEMPLATE_OPTIONS;
-    }
-
-    return TEMPLATE_OPTIONS.filter((option) => {
-      const haystacks = [
-        option.label,
-        option.description,
-        option.group,
-        ...option.keywords,
-      ];
-
-      return haystacks.some((value) =>
+    return templates.filter((option) =>
+      [option.label, option.description, option.group, option.tag].some((value) =>
         value.toLowerCase().includes(normalizedQuery),
-      );
-    });
-  }, [query]);
+      ),
+    );
+  }, [query, templates]);
 
   const groupedOptions = useMemo(() => {
-    return GROUP_ORDER.map((group) => ({
-      group,
-      items: filteredOptions.filter((option) => option.group === group),
-    })).filter((section) => section.items.length > 0);
-  }, [filteredOptions]);
+    const orderedGroups = [
+      ...groupOrder,
+      ...templates
+        .map((item) => item.group)
+        .filter((group) => !groupOrder.includes(group)),
+    ];
+
+    return orderedGroups
+      .map((group) => ({
+        group,
+        items: filteredOptions.filter((option) => option.group === group),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [filteredOptions, templates]);
 
   const flatOptions = useMemo(
     () => groupedOptions.flatMap((section) => section.items),
@@ -160,10 +181,7 @@ export default function JournalComposer({
     const caretPosition = textarea?.selectionStart ?? content.length;
     const beforeCaret = content.slice(0, caretPosition);
     const afterCaret = content.slice(caretPosition);
-    const updatedBeforeCaret = beforeCaret.replace(
-      /@([^\s@]*)$/,
-      option.content,
-    );
+    const updatedBeforeCaret = beforeCaret.replace(/@([^\s@]*)$/, option.content);
     const nextContent = `${updatedBeforeCaret}${afterCaret}`;
 
     setContent(nextContent);
@@ -180,23 +198,23 @@ export default function JournalComposer({
   };
 
   const fieldBase = darkMode
-    ? "border-white/10 bg-[rgba(255,255,255,0.04)] text-[#f4ede3] placeholder:text-neutral-500 focus:border-[#c4d1c7]"
+    ? "border-white/10 bg-[rgba(255,255,255,0.05)] text-[#f4ede3] placeholder:text-neutral-500 focus:border-[#c4d1c7]"
     : "border-[var(--line)] bg-[var(--paper-strong)] text-[#312c27] placeholder:text-[#9a8f84] focus:border-[var(--accent)]";
 
   const notebookFieldBase = darkMode
-    ? "border-transparent bg-transparent text-[#f4ede3] placeholder:text-neutral-500 focus:border-transparent"
-    : "border-transparent bg-transparent text-[#312c27] placeholder:text-[#9a8f84] focus:border-transparent";
+    ? "rounded-[24px] border border-white/10 bg-[rgba(255,255,255,0.05)] text-[#f4ede3] placeholder:text-neutral-500 focus:border-[#c4d1c7]"
+    : "rounded-[24px] border border-[var(--line)] bg-[rgba(255,251,245,0.86)] text-[#312c27] placeholder:text-[#9a8f84] focus:border-[var(--accent)]";
 
-  const errorBase = "border-rose-300 bg-rose-50 text-[#312c27] focus:border-rose-400";
-  const resolvedEditorHeight =
-    minEditorHeight ?? (compact ? "340px" : "380px");
+  const errorBase =
+    "border-rose-300 bg-rose-50 text-[#312c27] focus:border-rose-400";
+  const resolvedEditorHeight = minEditorHeight ?? (compact ? "340px" : "380px");
 
   const sharedInputClass = mode === "notebook" ? notebookFieldBase : fieldBase;
   const labelTone =
     darkMode && mode !== "notebook" ? "text-[#f4ede3]" : "text-[#312c27]";
   const helperTone = darkMode ? "text-[#d5cec4]" : "text-[var(--muted)]";
   const cardShell = darkMode
-    ? "border border-white/10 bg-[rgba(255,255,255,0.03)] text-[#f4ede3] shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
+    ? "rounded-[24px] border border-white/10 bg-[rgba(255,255,255,0.03)] p-4 text-[#f4ede3] shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
     : "journal-paper rounded-[24px] p-4 sm:rounded-[28px] sm:p-5";
 
   return (
@@ -216,29 +234,41 @@ export default function JournalComposer({
       {mode === "cards" ? (
         <div className="grid gap-4 xl:grid-cols-[0.95fr_1.45fr] xl:gap-5">
           <section className={cardShell}>
-            <p className={`hand-accent text-sm ${darkMode ? "text-[#ccb690]" : "text-[var(--gold-soft)]"}`}>
+            <p
+              className={`hand-accent text-sm ${
+                darkMode ? "text-[#ccb690]" : "text-[var(--gold-soft)]"
+              }`}
+            >
               Cảm xúc hôm nay
             </p>
             <div className="mt-4 space-y-2">
-              <label htmlFor="title-card" className={`block text-lg font-semibold ${labelTone}`}>
+              <label
+                htmlFor="title-card"
+                className={`block text-lg font-semibold ${labelTone}`}
+              >
                 Hôm nay bạn đang thấy thế nào?
               </label>
               <input
                 id="title-card"
                 type="text"
                 placeholder="Cho mình biết cảm xúc rõ nhất của bạn..."
-                className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition sm:rounded-[22px] sm:py-4 ${
+                className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${
                   titleError ? errorBase : fieldBase
                 }`}
                 spellCheck={false}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
-              {titleError ? <ErrorHint text="Nuuu, cho mình biết tâm trạng của bạn đi mà..." /> : null}
+              {titleError ? (
+                <ErrorHint text="Nuuu, cho mình biết tâm trạng của bạn đi mà..." />
+              ) : null}
             </div>
 
             <div className="mt-6 space-y-2">
-              <label htmlFor="moodScore-card" className={`block text-base font-semibold ${labelTone}`}>
+              <label
+                htmlFor="moodScore-card"
+                className={`block text-base font-semibold ${labelTone}`}
+              >
                 Mood score (1-10)
               </label>
               <input
@@ -248,130 +278,40 @@ export default function JournalComposer({
                 min="1"
                 max="10"
                 placeholder="7"
-                className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition sm:rounded-[22px] sm:py-4 ${fieldBase}`}
+                className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${fieldBase}`}
                 spellCheck={false}
               />
-            </div>
-
-            <div className={`mt-6 rounded-[22px] px-4 py-4 ${darkMode ? "bg-[rgba(255,255,255,0.04)]" : "bg-[rgba(255,251,245,0.72)]"}`}>
-              <p className="text-sm font-semibold">Gợi ý nhẹ</p>
-              <p className={`mt-2 text-sm leading-7 ${helperTone}`}>
-                Hãy viết như đang tự kể lại cho mình nghe, không cần chỉnh sửa ngay
-                từ câu đầu tiên.
-              </p>
             </div>
           </section>
 
           <div className="grid gap-5">
-            <section className={cardShell}>
-              <label htmlFor="content-card" className={`block text-lg font-semibold ${labelTone}`}>
-                Nội dung chính
-              </label>
-              <p className={`mt-2 text-sm ${helperTone}`}>
-                Gõ <span className="font-semibold">@langnghe</span> để gọi template nhanh.
-              </p>
-
-              <div className="relative mt-4">
+            {cardFields.map((field, index) => (
+              <section key={field.id} className={cardShell}>
+                <label className={`block text-lg font-semibold ${labelTone}`}>
+                  {field.label}
+                </label>
                 <textarea
-                  ref={textareaRef}
-                  id="content-card"
-                  rows={8}
-                  placeholder="Viết phần tâm sự chính của bạn ở đây..."
-                  className={`h-auto w-full resize-none rounded-[26px] border px-5 py-5 outline-none transition ${
-                    contentError ? errorBase : fieldBase
-                  }`}
-                  style={{ height: resolvedEditorHeight }}
+                  rows={index === 0 ? 6 : 5}
+                  placeholder={field.placeholder}
+                  className={`mt-4 h-auto w-full resize-none rounded-[24px] border px-4 py-4 outline-none transition ${fieldBase}`}
+                  style={{ height: index === 0 ? resolvedEditorHeight : "12rem" }}
                   spellCheck={false}
-                  value={content}
-                  onChange={(e) => {
-                    const nextValue = e.target.value;
-                    const caretPosition = e.target.selectionStart ?? nextValue.length;
-                    setContent(nextValue);
-                    updateTemplateMenu(nextValue, caretPosition);
-                  }}
-                  onClick={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    const caretPosition = target.selectionStart ?? content.length;
-                    updateTemplateMenu(content, caretPosition);
-                  }}
-                  onKeyDown={(e) => {
-                    if (!isMenuOpen || flatOptions.length === 0) return;
-                    if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      setHighlightedIndex((current) =>
-                        current === flatOptions.length - 1 ? 0 : current + 1,
-                      );
-                    }
-                    if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      setHighlightedIndex((current) =>
-                        current === 0 ? flatOptions.length - 1 : current - 1,
-                      );
-                    }
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      applyTemplate(flatOptions[highlightedIndex]);
-                    }
-                    if (e.key === "Escape") {
-                      setIsMenuOpen(false);
-                    }
-                  }}
+                  value={cardValues[field.id] ?? ""}
+                  onChange={(e) =>
+                    setCardValues((current) => ({
+                      ...current,
+                      [field.id]: e.target.value,
+                    }))
+                  }
                 />
+              </section>
+            ))}
 
-                {isMenuOpen ? (
-                  <TemplateMenu
-                    flatOptions={flatOptions}
-                    groupedOptions={groupedOptions}
-                    highlightedIndex={highlightedIndex}
-                    applyTemplate={applyTemplate}
-                  />
-                ) : null}
+            {contentError ? (
+              <div className="mt-1">
+                <ErrorHint text="Nuuu, kể mình nghe thêm một chút nữa nha..." />
               </div>
-
-              {contentError ? (
-                <div className="mt-2">
-                  <ErrorHint text="Nuuu, kể mình nghe thêm một chút nữa nha..." />
-                </div>
-              ) : null}
-            </section>
-
-            <div className="grid gap-5 md:grid-cols-2">
-              <section className={cardShell}>
-                <label htmlFor="gratitude-card" className={`block text-lg font-semibold ${labelTone}`}>
-                  Gratitude
-                </label>
-                <p className={`mt-2 text-sm ${helperTone}`}>
-                  Một điều nhỏ khiến hôm nay dịu lại.
-                </p>
-                <textarea
-                  id="gratitude-card"
-                  rows={5}
-                  placeholder="Hôm nay mình biết ơn vì..."
-                  className={`mt-4 h-44 w-full resize-none rounded-[24px] border px-4 py-4 outline-none transition ${fieldBase}`}
-                  spellCheck={false}
-                  value={gratitude}
-                  onChange={(e) => setGratitude(e.target.value)}
-                />
-              </section>
-
-              <section className={cardShell}>
-                <label htmlFor="reflection-card" className={`block text-lg font-semibold ${labelTone}`}>
-                  Reflection
-                </label>
-                <p className={`mt-2 text-sm ${helperTone}`}>
-                  Một câu nhắn dịu dàng cho chính mình.
-                </p>
-                <textarea
-                  id="reflection-card"
-                  rows={5}
-                  placeholder="Điều mình muốn nhắc bản thân là..."
-                  className={`mt-4 h-44 w-full resize-none rounded-[24px] border px-4 py-4 outline-none transition ${fieldBase}`}
-                  spellCheck={false}
-                  value={reflection}
-                  onChange={(e) => setReflection(e.target.value)}
-                />
-              </section>
-            </div>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -384,14 +324,16 @@ export default function JournalComposer({
               id="title"
               type="text"
               placeholder="Cho mình biết tâm trạng của bạn nhé..."
-              className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition sm:rounded-[22px] sm:py-4 ${
+              className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${
                 titleError ? errorBase : sharedInputClass
               }`}
               spellCheck={false}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-            {titleError ? <ErrorHint text="Nuuu, cho mình biết tâm trạng của bạn đi mà..." /> : null}
+            {titleError ? (
+              <ErrorHint text="Nuuu, cho mình biết tâm trạng của bạn đi mà..." />
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -399,7 +341,8 @@ export default function JournalComposer({
               Hãy tâm sự với mình thêm một chút nhé. Hoặc gõ @ để chọn template có sẵn.
             </label>
             <p className={`${helperTone} text-sm`}>
-              Ví dụ: gõ <span className="font-semibold">@langnghe</span> để lọc nhanh template phù hợp.
+              Ví dụ: gõ <span className="font-semibold">@{templates[0]?.tag ?? "langnghe"}</span>{" "}
+              để lọc nhanh template phù hợp.
             </p>
 
             <div className="relative">
@@ -410,7 +353,7 @@ export default function JournalComposer({
                 placeholder="Viết dòng tâm sự của bạn..."
                 className={`h-auto w-full resize-none rounded-[22px] border px-4 py-4 outline-none transition sm:rounded-[28px] sm:px-5 sm:py-5 ${
                   contentError ? errorBase : sharedInputClass
-                } ${mode === "notebook" ? "shadow-none" : ""}`}
+                }`}
                 style={{ height: resolvedEditorHeight }}
                 spellCheck={false}
                 value={content}
@@ -459,7 +402,9 @@ export default function JournalComposer({
               ) : null}
             </div>
 
-            {contentError ? <ErrorHint text="Nuuu, kể mình nghe thêm một chút nữa nha..." /> : null}
+            {contentError ? (
+              <ErrorHint text="Nuuu, kể mình nghe thêm một chút nữa nha..." />
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -473,7 +418,7 @@ export default function JournalComposer({
               min="1"
               max="10"
               placeholder="7"
-              className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition sm:rounded-[22px] sm:py-4 ${sharedInputClass}`}
+              className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${sharedInputClass}`}
               spellCheck={false}
             />
           </div>
@@ -551,7 +496,7 @@ function TemplateMenu({
                           : "bg-[#eee7db] text-[#6a5d4f]"
                       }`}
                     >
-                      {getIcon(option.icon)}
+                      {iconForGroup(option.group)}
                     </span>
 
                     <span className="min-w-0">
@@ -563,7 +508,7 @@ function TemplateMenu({
                           isActive ? "text-[#f6efe6]" : "text-[var(--muted)]"
                         }`}
                       >
-                        {option.description}
+                        @{option.tag} · {option.description}
                       </span>
                     </span>
                   </button>

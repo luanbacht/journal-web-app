@@ -32,6 +32,24 @@ function MenuIcon() {
   );
 }
 
+function HomeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3.5 9.25 10 4l6.5 5.25" />
+      <path d="M5.5 8.75v7h9v-7" />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon() {
   return (
     <svg
@@ -154,8 +172,16 @@ export default function HistoryNav() {
       setExpanded(false);
 
       setPosition({
-        x: clamp(event.clientX - dragOffsetRef.current.x, 12, Math.max(12, window.innerWidth - width - 12)),
-        y: clamp(event.clientY - dragOffsetRef.current.y, 12, Math.max(12, window.innerHeight - height - 12)),
+        x: clamp(
+          event.clientX - dragOffsetRef.current.x,
+          12,
+          Math.max(12, window.innerWidth - width - 12),
+        ),
+        y: clamp(
+          event.clientY - dragOffsetRef.current.y,
+          12,
+          Math.max(12, window.innerHeight - height - 12),
+        ),
       });
     };
 
@@ -208,14 +234,7 @@ export default function HistoryNav() {
     wake();
   };
 
-  const handleBack = () => {
-    router.back();
-    setExpanded(false);
-    wake();
-  };
-
-  const handleForward = () => {
-    router.forward();
+  const closeMenu = () => {
     setExpanded(false);
     wake();
   };
@@ -223,7 +242,9 @@ export default function HistoryNav() {
   return (
     <div
       ref={shellRef}
-      className={`history-nav-shell ${active || dragging || expanded ? "history-nav-shell-active" : ""}`}
+      className={`history-nav-shell ${
+        active || dragging || expanded ? "history-nav-shell-active" : ""
+      }`}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -233,15 +254,18 @@ export default function HistoryNav() {
       onFocusCapture={wake}
     >
       <div
-        className={`toolbar-pill history-nav-container ${expanded ? "history-nav-container-expanded" : ""} ${
-          dock === "right" ? "history-nav-dock-right" : "history-nav-dock-left"
-        }`}
+        className={`toolbar-pill history-nav-container ${
+          expanded ? "history-nav-container-expanded" : ""
+        } ${dock === "right" ? "history-nav-dock-right" : "history-nav-dock-left"}`}
       >
         {expanded && (
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={handleBack}
+              onClick={() => {
+                router.back();
+                closeMenu();
+              }}
               aria-label="Lùi"
               title="Lùi"
               className="history-nav-button"
@@ -252,7 +276,24 @@ export default function HistoryNav() {
             </button>
             <button
               type="button"
-              onClick={handleForward}
+              onClick={() => {
+                router.push("/dashboard");
+                closeMenu();
+              }}
+              aria-label="Về dashboard"
+              title="Về dashboard"
+              className="history-nav-button"
+              data-history-action="true"
+            >
+              <HomeIcon />
+              <span className="sr-only">Về dashboard</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                router.forward();
+                closeMenu();
+              }}
               aria-label="Tiến"
               title="Tiến"
               className="history-nav-button"
@@ -274,7 +315,9 @@ export default function HistoryNav() {
           data-history-action="true"
         >
           <MenuIcon />
-          <span className="sr-only">{expanded ? "Thu gọn điều hướng" : "Mở điều hướng"}</span>
+          <span className="sr-only">
+            {expanded ? "Thu gọn điều hướng" : "Mở điều hướng"}
+          </span>
         </button>
       </div>
     </div>
