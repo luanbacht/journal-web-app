@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
 
       setMessageTone("success");
       setMessage(
-        "Mình đã gửi mã xác minh về email của bạn rồi. Hãy nhập mã 6 số và đặt lại mật khẩu mới nhé.",
+        "Mình đã gửi mã xác minh về email của bạn rồi. Hãy nhập mã OTP trong email và đặt lại mật khẩu mới nhé.",
       );
       setStep("verify");
     } finally {
@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
               {step === "request"
-                ? "Nhập email bạn đã đăng ký. Mình sẽ gửi mã OTP 6 số để xác minh."
+                ? "Nhập email bạn đã đăng ký. Mình sẽ gửi mã OTP để xác minh."
                 : step === "verify"
                   ? "Nhập mã OTP vừa nhận được và chọn mật khẩu mới."
                   : "Mọi thứ đã sẵn sàng. Bạn có thể quay lại màn đăng nhập."}
@@ -172,18 +172,18 @@ export default function ForgotPasswordPage() {
                     htmlFor="otp"
                     className="block text-sm font-medium text-[#5f554b]"
                   >
-                    Mã OTP 6 số
+                    Mã OTP
                   </label>
                   <input
                     id="otp"
                     type="text"
                     inputMode="numeric"
-                    maxLength={6}
-                    placeholder="123456"
+                    maxLength={12}
+                    placeholder="Nhập mã trong email"
                     className="w-full rounded-[18px] border border-[var(--line)] bg-[var(--paper-strong)] px-4 py-3.5 text-[#312c27] outline-none transition focus:border-[var(--accent)] sm:rounded-[22px] sm:py-4"
                     value={otp}
                     onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D+/g, "").slice(0, 6))
+                      setOtp(e.target.value.replace(/\D+/g, "").slice(0, 12))
                     }
                   />
                 </div>
