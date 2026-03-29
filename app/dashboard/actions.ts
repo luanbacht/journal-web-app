@@ -72,20 +72,18 @@ function collectKeywordHits(entries: Array<{ title: string; content: string }>) 
   ];
 
   const normalizedText = entries
-    .map((entry: { title: string; content: string }) =>
-      `${entry.title} ${entry.content}`.toLowerCase(),
-    )
+    .map((entry) => `${entry.title} ${entry.content}`.toLowerCase())
     .join(" ");
 
   return keywordGroups
-    .map((group: { label: string; words: string[] }) => ({
+    .map((group) => ({
       label: group.label,
       count: group.words.reduce(
         (sum, word) => sum + (normalizedText.includes(word) ? 1 : 0),
         0,
       ),
     }))
-    .filter((group: { label: string; count: number }) => group.count > 0)
+    .filter((group) => group.count > 0)
     .sort((a, b) => b.count - a.count);
 }
 
@@ -98,7 +96,9 @@ function buildSummary(params: {
   const moodSentence =
     params.average === null
       ? "Bạn đã viết đều nhưng chưa chấm mood đủ để nhìn ra nhịp cảm xúc thật rõ."
-      : `Mood trung bình của bạn tuần này là ${params.average.toFixed(1)}/10, cho thấy một nhịp cảm xúc ${params.average >= 6 ? "khá ổn định" : "cần được dịu lại"}.`;
+      : `Mood trung bình của bạn tuần này là ${params.average.toFixed(1)}/10, cho thấy một nhịp cảm xúc ${
+          params.average >= 6 ? "khá ổn định" : "cần được dịu lại"
+        }.`;
 
   const themeSentence =
     params.topThemes.length > 0
@@ -113,7 +113,7 @@ function buildSummary(params: {
   ].join(" ");
 }
 
-function buildWins(entries: Array<{ moodScore: number | null; content: string }>, daysWritten: number) {
+function buildWins(entries: Array<{ moodScore: number | null }>, daysWritten: number) {
   const highMoodEntries = entries.filter(
     (entry) => entry.moodScore !== null && entry.moodScore >= 7,
   ).length;
@@ -152,7 +152,152 @@ type WeeklyEntry = {
   createdAt: Date;
 };
 
-export async function generateWeeklySummary() {
+type SummaryPayload = {
+  summary: string;
+  moodTrend: string;
+  wins: string;
+  challenges: string;
+};
+
+type SummaryProvider = "gemini" | "rule-based";
+
+const SUMMARY_COOLDOWN_MS = 90 * 1000;
+
+function extractJsonBlock(text: string) {
+  const fencedMatch = text.match(/```json\s*([\s\S]*?)```/i);
+
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const objectMatch = text.match(/\{[\s\S]*\}/);
+  return objectMatch ? objectMatch[0].trim() : text.trim();
+}
+
+function isSummaryPayload(value: unknown): value is SummaryPayload {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.summary === "string" &&
+    typeof candidate.moodTrend === "string" &&
+    typeof candidate.wins === "string" &&
+    typeof candidate.challenges === "string"
+  );
+}
+
+function buildGeminiPrompt(entries: WeeklyEntry[]) {
+  const serializedEntries = entries
+    .map((entry, index) => {
+      const moodLabel = entry.moodScore === null ? "không chấm mood" : `${entry.moodScore}/10`;
+
+      return [
+        `Entry ${index + 1}`,
+        `Ngày: ${entry.createdAt.toISOString()}`,
+        `Tiêu đề: ${entry.title}`,
+        `Mood: ${moodLabel}`,
+        `Nội dung: ${entry.content}`,
+      ].join("\n");
+    })
+    .join("\n\n---\n\n");
+
+  return `
+Bạn là một người bạn đồng hành dịu dàng đang giúp tổng hợp journal tuần cho người dùng.
+Hãy đọc các journal 7 ngày gần nhất và trả về đúng JSON hợp lệ, không thêm markdown, không thêm giải thích.
+
+Yêu cầu:
+- Viết bằng tiếng Việt tự nhiên, ấm áp, dễ hiểu.
+- Không phán xét.
+- summary: 3-5 câu tóm tắt tuần vừa qua.
+- moodTrend: 1-2 câu về xu hướng cảm xúc.
+- wins: 1-2 câu về điều tích cực, tiến bộ hoặc điều đáng ghi nhận.
+- challenges: 1-2 câu về điều còn khó khăn hoặc điều nên nhẹ nhàng chú ý.
+
+Chỉ trả về JSON theo đúng schema:
+{
+  "summary": "string",
+  "moodTrend": "string",
+  "wins": "string",
+  "challenges": "string"
+}
+
+Dữ liệu journal:
+${serializedEntries}
+`.trim();
+}
+
+async function generateSummaryWithGemini(entries: WeeklyEntry[]) {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Chưa tìm thấy GEMINI_API_KEY trong environment variables.");
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: buildGeminiPrompt(entries),
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 900,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini trả lỗi HTTP ${response.status}. ${errorText.slice(0, 240)}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!text) {
+    throw new Error("Gemini không trả về nội dung summary hợp lệ.");
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(extractJsonBlock(text));
+  } catch {
+    throw new Error(`Gemini trả về nội dung không parse được thành JSON: ${text.slice(0, 240)}`);
+  }
+
+  if (!isSummaryPayload(parsed)) {
+    throw new Error("Gemini trả về dữ liệu chưa đúng định dạng summary.");
+  }
+
+  return parsed;
+}
+
+export async function generateWeeklySummary(formData?: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -170,6 +315,27 @@ export async function generateWeeklySummary() {
 
   if (!profile) {
     throw new Error("Không tìm thấy profile của người dùng hiện tại.");
+  }
+
+  const latestSummary = await prisma.weeklyAISummary.findFirst({
+    where: {
+      profileId: profile.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      createdAt: true,
+    },
+  });
+
+  if (latestSummary) {
+    const elapsed = Date.now() - latestSummary.createdAt.getTime();
+
+    if (elapsed < SUMMARY_COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((SUMMARY_COOLDOWN_MS - elapsed) / 1000);
+      throw new Error(`Hãy đợi ${remainingSeconds} giây nữa rồi tạo summary tiếp nha.`);
+    }
   }
 
   const today = startOfDay(new Date());
@@ -200,22 +366,43 @@ export async function generateWeeklySummary() {
   }
 
   const daysWritten = new Set(
-    entries.map((entry: WeeklyEntry) => startOfDay(entry.createdAt).toISOString()),
+    entries.map((entry) => startOfDay(entry.createdAt).toISOString()),
   ).size;
-  const average = averageMood(entries.map((entry: WeeklyEntry) => entry.moodScore));
+  const average = averageMood(entries.map((entry) => entry.moodScore));
   const topThemes = collectKeywordHits(entries)
     .slice(0, 2)
-    .map((item: { label: string; count: number }) => item.label);
+    .map((item) => item.label);
 
-  const summary = buildSummary({
+  let summary = buildSummary({
     entryCount: entries.length,
     daysWritten,
     average,
     topThemes,
   });
-  const moodTrend = buildMoodTrend(average);
-  const wins = buildWins(entries, daysWritten);
-  const challenges = buildChallenges(average, topThemes);
+  let moodTrend = buildMoodTrend(average);
+  let wins = buildWins(entries, daysWritten);
+  let challenges = buildChallenges(average, topThemes);
+  const preferredProvider =
+    formData?.get("provider") === "gemini" ? "gemini" : ("rule-based" as SummaryProvider);
+
+  let provider: SummaryProvider = "rule-based";
+  let fallbackReason = "";
+
+  if (preferredProvider === "gemini") {
+    try {
+      const geminiSummary = await generateSummaryWithGemini(entries);
+      summary = geminiSummary.summary;
+      moodTrend = geminiSummary.moodTrend;
+      wins = geminiSummary.wins;
+      challenges = geminiSummary.challenges;
+      provider = "gemini";
+    } catch (error) {
+      fallbackReason =
+        error instanceof Error ? error.message : "Gemini gặp lỗi không xác định.";
+    }
+  } else {
+    fallbackReason = "Bạn đang chọn chế độ summary miễn phí.";
+  }
 
   await prisma.weeklyAISummary.deleteMany({
     where: {
@@ -237,4 +424,11 @@ export async function generateWeeklySummary() {
   });
 
   revalidatePath("/dashboard");
+
+  return {
+    provider,
+    preferredProvider,
+    fallbackReason,
+    cooldownMs: SUMMARY_COOLDOWN_MS,
+  };
 }

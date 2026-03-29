@@ -36,7 +36,7 @@ function truncate(text: string, maxLength: number) {
 
 function countStreak(entryDates: Date[]) {
   const uniqueDays = new Set(
-    entryDates.map((date: Date) => startOfDay(date).toISOString()),
+    entryDates.map((date) => startOfDay(date).toISOString()),
   );
 
   let streak = 0;
@@ -152,16 +152,10 @@ export default async function DashboardPage() {
       }),
     ]);
 
-  const weeklyMoodAverage = averageMood(
-    weekEntries.map((entry: { createdAt: Date; moodScore: number | null }) => entry.moodScore),
-  );
-  const currentStreak = countStreak(
-    allEntries.map((entry: { createdAt: Date; moodScore: number | null }) => entry.createdAt),
-  );
+  const weeklyMoodAverage = averageMood(weekEntries.map((entry) => entry.moodScore));
+  const currentStreak = countStreak(allEntries.map((entry) => entry.createdAt));
   const daysWrittenThisWeek = new Set(
-    weekEntries.map((entry: { createdAt: Date; moodScore: number | null }) =>
-      startOfDay(entry.createdAt).toISOString(),
-    ),
+    weekEntries.map((entry) => startOfDay(entry.createdAt).toISOString()),
   ).size;
 
   return (
@@ -171,14 +165,14 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="hand-accent text-sm text-[var(--gold-soft)]">
-                Your writing rhythm, gently collected
+                Nhịp viết của bạn, được giữ lại thật dịu dàng
               </p>
               <h1 className="serif-display mt-3 text-4xl font-semibold leading-none text-[#2f2924] sm:text-5xl md:text-6xl">
                 Viết gì đó đi, {profile.username}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)]">
-                Đây là góc nhìn lại nhịp viết, cảm xúc và những bài journal gần đây
-                của bạn. Nhẹ nhàng thôi, chỉ đủ để bạn thấy mình đang ở đâu.
+                Đây là góc nhìn lại nhịp viết, cảm xúc và những bài journal gần đây của bạn.
+                Nhẹ nhàng thôi, chỉ đủ để bạn thấy mình đang ở đâu.
               </p>
             </div>
 
@@ -254,10 +248,10 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="hand-accent text-sm text-[var(--gold-soft)]">
-                  Recent pages
+                  Những trang gần đây
                 </p>
                 <h2 className="serif-display mt-2 text-4xl font-semibold text-[#2f2924]">
-                  Recent journals
+                  Journal gần đây
                 </h2>
               </div>
               <Link
@@ -274,18 +268,7 @@ export default async function DashboardPage() {
                   Bạn chưa có bài journal nào để hiển thị ở đây.
                 </p>
               ) : (
-                recentJournals.map((journal: {
-                  id: string;
-                  title: string;
-                  content: string;
-                  createdAt: Date;
-                  moodScore: number | null;
-                  energyScore: number | null;
-                  stressScore: number | null;
-                  isPrivate: boolean;
-                  updatedAt: Date;
-                  profileId: string;
-                }) => (
+                recentJournals.map((journal) => (
                   <Link
                     key={journal.id}
                     href={`/journals/${journal.id}`}
@@ -308,14 +291,14 @@ export default async function DashboardPage() {
 
           <article className="journal-paper rounded-[24px] p-5 sm:rounded-[30px] sm:p-7">
             <p className="hand-accent text-sm text-[var(--gold-soft)]">
-              Weekly reflection
+              Góc nhìn cuối tuần
             </p>
             <h2 className="serif-display mt-2 text-4xl font-semibold text-[#2f2924]">
-              Weekly summary
+              Tổng hợp tuần
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-              Một góc tổng hợp nhanh để bạn nhìn lại tuần vừa qua bằng một bản tóm tắt
-              dịu dàng, gọn gàng và miễn phí ngay trong app.
+              Một góc tổng hợp nhanh để bạn nhìn lại tuần vừa qua bằng một bản tóm tắt dịu
+              dàng, gọn gàng và miễn phí ngay trong app.
             </p>
 
             {latestSummary ? (
@@ -324,7 +307,7 @@ export default async function DashboardPage() {
                   {truncate(latestSummary.summary, 280)}
                 </p>
                 <p className="mt-4 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                  Mood trend: {latestSummary.moodTrend ?? "Đang cập nhật"}
+                  Xu hướng cảm xúc: {latestSummary.moodTrend ?? "Đang cập nhật"}
                 </p>
                 {latestSummary.wins ? (
                   <p className="mt-4 text-sm leading-7 text-[#5a5047]">
@@ -342,13 +325,16 @@ export default async function DashboardPage() {
             ) : (
               <div className="mt-6 rounded-[24px] bg-[rgba(255,251,245,0.78)] px-5 py-5">
                 <p className="text-sm leading-7 text-[var(--muted)]">
-                  Bạn chưa có weekly summary nào cả. Bấm nút bên dưới để tạo một
-                  bản tổng hợp nhẹ nhàng từ những journal trong 7 ngày gần nhất.
+                  Bạn chưa có tổng hợp tuần nào cả. Bấm nút bên dưới để tạo một bản tổng hợp
+                  nhẹ nhàng từ những journal trong 7 ngày gần nhất.
                 </p>
               </div>
             )}
 
-            <GenerateSummaryButton />
+            <GenerateSummaryButton
+              hasGeminiKey={Boolean(process.env.GEMINI_API_KEY)}
+              latestSummaryCreatedAt={latestSummary?.createdAt.toISOString()}
+            />
           </article>
         </section>
       </div>

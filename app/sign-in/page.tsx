@@ -9,21 +9,28 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage("");
+    setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setMessage(error.message);
-      return;
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      window.location.href = "/dashboard";
+    } finally {
+      setIsSubmitting(false);
     }
-
-    window.location.href = "/dashboard";
   };
 
   return (
@@ -37,8 +44,8 @@ export default function SignInPage() {
             Đăng nhập
           </h1>
           <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)]">
-            Mở lại không gian riêng của bạn, nơi những dòng chữ được giữ ấm và ở yên
-            cho đến khi bạn sẵn sàng viết tiếp.
+            Mở lại không gian riêng của bạn, nơi những dòng chữ được giữ ấm và ở
+            yên cho đến khi bạn sẵn sàng viết tiếp.
           </p>
 
           <div className="mt-10 rounded-[28px] bg-[rgba(255,251,245,0.72)] px-6 py-6">
@@ -82,12 +89,20 @@ export default function SignInPage() {
               </div>
 
               <div className="space-y-2">
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-[#5f554b]"
-                >
-                  Mật khẩu
-                </label>
+                <div className="flex items-center justify-between gap-3">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-[#5f554b]"
+                  >
+                    Mật khẩu
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium text-[var(--accent-ink)] underline decoration-[rgba(111,133,117,0.3)] underline-offset-4"
+                  >
+                    Quên mật khẩu?
+                  </Link>
+                </div>
                 <input
                   id="password"
                   type="password"
@@ -100,9 +115,17 @@ export default function SignInPage() {
 
               <button
                 type="submit"
-                className="accent-button w-full rounded-full px-5 py-3 text-sm font-medium transition"
+                disabled={isSubmitting}
+                className="accent-button flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-80"
               >
-                Đăng nhập
+                {isSubmitting ? (
+                  <>
+                    <span className="journal-button-spinner" />
+                    <span>Đang đăng nhập...</span>
+                  </>
+                ) : (
+                  "Đăng nhập"
+                )}
               </button>
             </form>
 

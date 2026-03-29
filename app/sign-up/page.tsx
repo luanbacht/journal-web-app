@@ -4,39 +4,75 @@ import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+type MessageTone = "success" | "error" | "info";
+
 export default function SignUpPage() {
   const supabase = createClient();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<MessageTone>("info");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage("");
 
     if (!username.trim()) {
+      setMessageTone("error");
       setMessage("Hãy chọn cho mình một tên hiển thị trước nhé.");
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username: username.trim(),
+    setIsSubmitting(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: username.trim(),
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+      });
 
-    if (error) {
-      setMessage(error.message);
-      return;
+      if (error) {
+        setMessageTone("error");
+        setMessage(error.message);
+        return;
+      }
+
+      const existingAccount =
+        data.user &&
+        Array.isArray(data.user.identities) &&
+        data.user.identities.length === 0;
+
+      if (existingAccount) {
+        setMessageTone("info");
+        setMessage(
+          "Email này đã có tài khoản rồi. Bạn đăng nhập luôn nhé, hoặc dùng Quên mật khẩu nếu cần lấy lại quyền truy cập.",
+        );
+        return;
+      }
+
+      setMessageTone("success");
+      setMessage(
+        "Đăng ký thành công. Hãy mở email để xác thực tài khoản của bạn nhé.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setMessage("Đăng ký thành công. Hãy mở email để xác thực tài khoản của bạn nhé.");
   };
+
+  const messageClass =
+    messageTone === "success"
+      ? "bg-[rgba(111,133,117,0.12)] text-[#587061]"
+      : messageTone === "error"
+        ? "bg-[rgba(173,95,79,0.12)] text-[#8d5a4e]"
+        : "bg-[rgba(183,158,116,0.12)] text-[#7b6550]";
 
   return (
     <main className="journal-shell min-h-screen px-4 py-8 md:px-8 md:py-10">
@@ -58,7 +94,8 @@ export default function SignUpPage() {
               “Keep a page for yourself, even on the busiest days.”
             </p>
             <p className="mt-4 text-sm leading-7 text-[var(--muted)]">
-              Chọn một username bạn thấy thân thuộc, rồi bắt đầu viết theo nhịp của riêng mình.
+              Chọn một username bạn thấy thân thuộc, rồi bắt đầu viết theo nhịp của
+              riêng mình.
             </p>
           </div>
         </section>
@@ -72,7 +109,8 @@ export default function SignUpPage() {
               Tạo góc journal riêng của bạn
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-              Điền vài thông tin cơ bản để bắt đầu. Bạn có thể dùng email này để quay lại bất cứ lúc nào.
+              Điền vài thông tin cơ bản để bắt đầu. Bạn có thể dùng email này để quay
+              lại bất cứ lúc nào.
             </p>
 
             <form onSubmit={handleSignUp} className="mt-8 space-y-5">
@@ -129,14 +167,22 @@ export default function SignUpPage() {
 
               <button
                 type="submit"
-                className="accent-button w-full rounded-full px-5 py-3 text-sm font-medium transition"
+                disabled={isSubmitting}
+                className="accent-button flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-80"
               >
-                Tạo tài khoản
+                {isSubmitting ? (
+                  <>
+                    <span className="journal-button-spinner" />
+                    <span>Đang tạo tài khoản...</span>
+                  </>
+                ) : (
+                  "Tạo tài khoản"
+                )}
               </button>
             </form>
 
             {message ? (
-              <p className="mt-4 rounded-[18px] bg-[rgba(183,158,116,0.12)] px-4 py-3 text-sm leading-6 text-[#7b6550]">
+              <p className={`mt-4 rounded-[18px] px-4 py-3 text-sm leading-6 ${messageClass}`}>
                 {message}
               </p>
             ) : null}

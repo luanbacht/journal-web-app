@@ -26,11 +26,6 @@ export const metadata: Metadata = {
   },
   description:
     "A calm, warm journal space for writing, reflecting, and keeping gentle notes from your day.",
-  icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
-  },
 };
 
 export default function RootLayout({
