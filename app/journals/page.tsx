@@ -106,7 +106,7 @@ export default async function JournalsPage({
     <main className="journal-shell min-h-screen px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto max-w-5xl">
         <section className="journal-paper journal-grain rounded-[26px] p-5 sm:p-7 md:rounded-[34px] md:p-10">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="hand-accent text-sm text-[var(--gold-soft)]">
                 A quiet place for your inner notes
@@ -120,19 +120,21 @@ export default async function JournalsPage({
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-              <Link
-                href="/dashboard"
-                className="soft-button rounded-full px-5 py-3 text-sm font-medium transition"
-              >
-                Về dashboard
-              </Link>
-              <Link
-                href="/journals/new"
-                className="accent-button rounded-full px-5 py-3 text-sm font-medium transition"
-              >
-                Viết journal mới
-              </Link>
+            <div className="flex w-full justify-start md:w-auto md:justify-end">
+              <div className="flex w-full max-w-[20rem] flex-col gap-3">
+                <Link
+                  href="/dashboard"
+                  className="soft-button inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition"
+                >
+                  Về dashboard
+                </Link>
+                <Link
+                  href="/journals/new"
+                  className="accent-button inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-medium shadow-[0_16px_40px_rgba(111,133,117,0.16)] transition"
+                >
+                  Viết journal mới
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -220,12 +222,12 @@ export default async function JournalsPage({
               </div>
             </div>
           ) : (
-              <div className="grid gap-4 sm:gap-5">
-                {journals.map((journal: JournalListItem) => (
+            <div className="grid gap-4 sm:gap-5">
+              {journals.map((journal: JournalListItem) => (
                 <Link
                   key={journal.id}
                   href={`/journals/${journal.id}`}
-                    className="journal-paper block rounded-[24px] p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(77,63,46,0.09)] sm:rounded-[30px] sm:p-6"
+                  className="journal-paper block rounded-[24px] p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(77,63,46,0.09)] sm:rounded-[30px] sm:p-6"
                 >
                   <article>
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
