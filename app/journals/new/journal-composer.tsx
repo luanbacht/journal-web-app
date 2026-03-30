@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { createJournal } from "@/app/journals/actions";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
+import {
+  saveJournalFromComposer,
+  type JournalComposerActionState,
+} from "@/app/journals/actions";
 
 export type TemplateOption = {
   id: string;
@@ -93,6 +97,12 @@ function iconForGroup(group: string) {
   return "•";
 }
 
+const initialComposerState: JournalComposerActionState = {
+  status: "idle",
+  journalId: null,
+  message: "",
+};
+
 export default function JournalComposer({
   compact = false,
   darkMode = false,
@@ -103,12 +113,20 @@ export default function JournalComposer({
 }: JournalComposerProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [moodScore, setMoodScore] = useState("");
   const [cardValues, setCardValues] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
+  const [isSaveLocked, setIsSaveLocked] = useState(false);
+  const [isEditingSavedJournal, setIsEditingSavedJournal] = useState(false);
+  const [currentJournalId, setCurrentJournalId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [actionState, formAction] = useActionState(
+    saveJournalFromComposer,
+    initialComposerState,
+  );
 
   const effectiveContent = useMemo(() => {
     if (mode !== "cards") {
@@ -185,6 +203,7 @@ export default function JournalComposer({
     const nextContent = `${updatedBeforeCaret}${afterCaret}`;
 
     setContent(nextContent);
+    setIsSaveLocked(false);
     setIsMenuOpen(false);
     setQuery("");
     setHighlightedIndex(0);
@@ -216,20 +235,96 @@ export default function JournalComposer({
   const cardShell = darkMode
     ? "rounded-[24px] border border-white/10 bg-[rgba(255,255,255,0.03)] p-4 text-[#f4ede3] shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
     : "journal-paper rounded-[24px] p-4 sm:rounded-[28px] sm:p-5";
+  const isLockedAfterSave = isSaveLocked && !isEditingSavedJournal;
+  const fieldsDisabled = Boolean(currentJournalId) && isLockedAfterSave;
+  const unlockSave = () => {
+    setIsSaveLocked(false);
+  };
+
+  useEffect(() => {
+    if (actionState.status !== "saved") {
+      return;
+    }
+
+    setCurrentJournalId(actionState.journalId);
+    setIsSaveLocked(true);
+    setIsEditingSavedJournal(false);
+  }, [actionState]);
+
+  useEffect(() => {
+    if (actionState.status !== "error") {
+      return;
+    }
+
+    if (actionState.journalId) {
+      setCurrentJournalId(actionState.journalId);
+      setIsEditingSavedJournal(true);
+    }
+
+    setIsSaveLocked(false);
+  }, [actionState]);
+
+  const beginUpdatingSavedJournal = () => {
+    setIsEditingSavedJournal(true);
+    setIsSaveLocked(false);
+  };
+
+  const submitButtonLabel = currentJournalId ? "Cập nhật journal" : "Lưu journal";
 
   return (
     <form
-      action={createJournal}
+      action={formAction}
       className={mode === "cards" ? "space-y-6" : "space-y-7"}
       onSubmit={(e) => {
         if (!title.trim() || !effectiveContent.trim()) {
           e.preventDefault();
           setHasTriedSubmit(true);
+          setIsSaveLocked(false);
+          return;
         }
+
+        setHasTriedSubmit(true);
+        setIsSaveLocked(true);
+        setIsEditingSavedJournal(false);
       }}
     >
+      <input type="hidden" name="journalId" value={currentJournalId ?? ""} />
       <input type="hidden" name="title" value={title} />
       <input type="hidden" name="content" value={effectiveContent} />
+      <input type="hidden" name="moodScore" value={moodScore} />
+
+      {actionState.message ? (
+        <div
+          className={`rounded-[24px] border px-4 py-4 sm:px-5 ${
+            actionState.status === "saved"
+              ? darkMode
+                ? "border-emerald-300/20 bg-emerald-500/10 text-[#e9f5ec]"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : darkMode
+                ? "border-rose-300/20 bg-rose-500/10 text-rose-100"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+          }`}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-7 sm:text-[15px]">
+              {actionState.message}
+            </p>
+            {actionState.status === "saved" && currentJournalId && !isEditingSavedJournal ? (
+              <button
+                type="button"
+                onClick={beginUpdatingSavedJournal}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  darkMode
+                    ? "border border-white/10 bg-[rgba(255,255,255,0.08)] text-[#f6f0e8] hover:bg-[rgba(255,255,255,0.14)]"
+                    : "border border-[var(--line)] bg-[rgba(255,251,245,0.9)] text-[#5d554d] hover:bg-[#f5eee4]"
+                }`}
+              >
+                Cập nhật journal
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {mode === "cards" ? (
         <div className="grid gap-4 xl:grid-cols-[0.95fr_1.45fr] xl:gap-5">
@@ -255,9 +350,13 @@ export default function JournalComposer({
                 className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${
                   titleError ? errorBase : fieldBase
                 }`}
+                disabled={fieldsDisabled}
                 spellCheck={false}
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  unlockSave();
+                }}
               />
               {titleError ? (
                 <ErrorHint text="Nuuu, cho mình biết tâm trạng của bạn đi mà..." />
@@ -279,7 +378,13 @@ export default function JournalComposer({
                 max="10"
                 placeholder="7"
                 className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${fieldBase}`}
+                disabled={fieldsDisabled}
                 spellCheck={false}
+                value={moodScore}
+                onChange={(e) => {
+                  setMoodScore(e.target.value);
+                  unlockSave();
+                }}
               />
             </div>
           </section>
@@ -295,14 +400,16 @@ export default function JournalComposer({
                   placeholder={field.placeholder}
                   className={`mt-4 h-auto w-full resize-none rounded-[24px] border px-4 py-4 outline-none transition ${fieldBase}`}
                   style={{ height: index === 0 ? resolvedEditorHeight : "12rem" }}
+                  disabled={fieldsDisabled}
                   spellCheck={false}
                   value={cardValues[field.id] ?? ""}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setCardValues((current) => ({
                       ...current,
                       [field.id]: e.target.value,
-                    }))
-                  }
+                    }));
+                    unlockSave();
+                  }}
                 />
               </section>
             ))}
@@ -327,9 +434,13 @@ export default function JournalComposer({
               className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${
                 titleError ? errorBase : sharedInputClass
               }`}
+              disabled={fieldsDisabled}
               spellCheck={false}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                unlockSave();
+              }}
             />
             {titleError ? (
               <ErrorHint text="Nuuu, cho mình biết tâm trạng của bạn đi mà..." />
@@ -355,12 +466,14 @@ export default function JournalComposer({
                   contentError ? errorBase : sharedInputClass
                 }`}
                 style={{ height: resolvedEditorHeight }}
+                disabled={fieldsDisabled}
                 spellCheck={false}
                 value={content}
                 onChange={(e) => {
                   const nextValue = e.target.value;
                   const caretPosition = e.target.selectionStart ?? nextValue.length;
                   setContent(nextValue);
+                  unlockSave();
                   updateTemplateMenu(nextValue, caretPosition);
                 }}
                 onClick={(e) => {
@@ -419,19 +532,47 @@ export default function JournalComposer({
               max="10"
               placeholder="7"
               className={`w-full rounded-[18px] border px-4 py-3.5 outline-none transition ${sharedInputClass}`}
+              disabled={fieldsDisabled}
               spellCheck={false}
+              value={moodScore}
+              onChange={(e) => {
+                setMoodScore(e.target.value);
+                unlockSave();
+              }}
             />
           </div>
         </>
       )}
 
-      <button
-        type="submit"
-        className="accent-button w-full rounded-full px-6 py-3 text-sm font-medium transition sm:w-auto"
-      >
-        Save journal
-      </button>
+      <SubmitButton
+        isLocked={isLockedAfterSave}
+        label={submitButtonLabel}
+      />
     </form>
+  );
+}
+
+function SubmitButton({
+  isLocked,
+  label,
+}: {
+  isLocked: boolean;
+  label: string;
+}) {
+  const { pending } = useFormStatus();
+  const disabled = pending || isLocked;
+
+  return (
+    <button
+      type="submit"
+      disabled={disabled}
+      aria-disabled={disabled}
+      className={`accent-button w-full rounded-full px-6 py-3 text-sm font-medium transition sm:w-auto ${
+        disabled ? "cursor-not-allowed opacity-70" : ""
+      }`}
+    >
+      {pending ? "Đang lưu..." : isLocked ? "Journal đã lưu, bấm cập nhật để sửa tiếp" : label}
+    </button>
   );
 }
 
