@@ -321,12 +321,19 @@ export default async function DashboardPage() {
 
             {latestSummary ? (
               <div className="mt-6 rounded-[24px] bg-[rgba(255,251,245,0.78)] px-5 py-5">
-                <p className="text-sm leading-7 text-[#5a5047]">
-                  {truncate(latestSummary.summary, 280)}
+                <p className="text-sm leading-8 text-[#5a5047]">
+                  {latestSummary.summary}
                 </p>
-                <p className="mt-4 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                  Xu hướng cảm xúc: {latestSummary.moodTrend ?? "Đang cập nhật"}
-                </p>
+                {latestSummary.moodTrend ? (
+                  <div className="mt-4 rounded-[20px] bg-[rgba(255,248,240,0.86)] px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                      Xu hướng cảm xúc
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[#5a5047]">
+                      {latestSummary.moodTrend}
+                    </p>
+                  </div>
+                ) : null}
                 {latestSummary.wins ? (
                   <p className="mt-4 text-sm leading-7 text-[#5a5047]">
                     <span className="font-medium text-[#3f352d]">Điều tích cực:</span>{" "}
@@ -350,7 +357,7 @@ export default async function DashboardPage() {
             )}
 
             <GenerateSummaryButton
-              hasGeminiKey={Boolean(process.env.GEMINI_API_KEY)}
+              hasGroqKey={Boolean(process.env.GROQ_API_KEY)}
               latestSummaryCreatedAt={latestSummary?.createdAt.toISOString()}
             />
           </article>

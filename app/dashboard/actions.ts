@@ -159,7 +159,7 @@ type SummaryPayload = {
   challenges: string;
 };
 
-type SummaryProvider = "gemini" | "rule-based";
+type SummaryProvider = "groq" | "rule-based";
 
 const SUMMARY_COOLDOWN_MS = 90 * 1000;
 
@@ -189,7 +189,7 @@ function isSummaryPayload(value: unknown): value is SummaryPayload {
   );
 }
 
-function buildGeminiPrompt(entries: WeeklyEntry[]) {
+function buildGroqPrompt(entries: WeeklyEntry[]) {
   const serializedEntries = entries
     .map((entry, index) => {
       const moodLabel = entry.moodScore === null ? "không chấm mood" : `${entry.moodScore}/10`;
@@ -229,57 +229,49 @@ ${serializedEntries}
 `.trim();
 }
 
-async function generateSummaryWithGemini(entries: WeeklyEntry[]) {
-  const apiKey = process.env.GEMINI_API_KEY;
+async function generateSummaryWithGroq(entries: WeeklyEntry[]) {
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new Error("Chưa tìm thấy GEMINI_API_KEY trong environment variables.");
+    throw new Error("Chưa tìm thấy GROQ_API_KEY trong biến môi trường.");
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: buildGeminiPrompt(entries),
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 900,
-        },
-      }),
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
     },
-  );
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.6,
+      max_tokens: 900,
+      messages: [
+        {
+          role: "user",
+          content: buildGroqPrompt(entries),
+        },
+      ],
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini trả lỗi HTTP ${response.status}. ${errorText.slice(0, 240)}`);
+    throw new Error(`Groq trả lỗi HTTP ${response.status}. ${errorText.slice(0, 240)}`);
   }
 
   const data = (await response.json()) as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{
-          text?: string;
-        }>;
+    choices?: Array<{
+      message?: {
+        content?: string;
       };
     }>;
   };
 
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = data.choices?.[0]?.message?.content;
 
   if (!text) {
-    throw new Error("Gemini không trả về nội dung summary hợp lệ.");
+    throw new Error("Groq không trả về nội dung summary hợp lệ.");
   }
 
   let parsed: unknown;
@@ -287,11 +279,11 @@ async function generateSummaryWithGemini(entries: WeeklyEntry[]) {
   try {
     parsed = JSON.parse(extractJsonBlock(text));
   } catch {
-    throw new Error(`Gemini trả về nội dung không parse được thành JSON: ${text.slice(0, 240)}`);
+    throw new Error(`Groq trả về nội dung không parse được thành JSON: ${text.slice(0, 240)}`);
   }
 
   if (!isSummaryPayload(parsed)) {
-    throw new Error("Gemini trả về dữ liệu chưa đúng định dạng summary.");
+    throw new Error("Groq trả về dữ liệu chưa đúng định dạng summary.");
   }
 
   return parsed;
@@ -383,22 +375,22 @@ export async function generateWeeklySummary(formData?: FormData) {
   let wins = buildWins(entries, daysWritten);
   let challenges = buildChallenges(average, topThemes);
   const preferredProvider =
-    formData?.get("provider") === "gemini" ? "gemini" : ("rule-based" as SummaryProvider);
+    formData?.get("provider") === "groq" ? "groq" : ("rule-based" as SummaryProvider);
 
   let provider: SummaryProvider = "rule-based";
   let fallbackReason = "";
 
-  if (preferredProvider === "gemini") {
+  if (preferredProvider === "groq") {
     try {
-      const geminiSummary = await generateSummaryWithGemini(entries);
-      summary = geminiSummary.summary;
-      moodTrend = geminiSummary.moodTrend;
-      wins = geminiSummary.wins;
-      challenges = geminiSummary.challenges;
-      provider = "gemini";
+      const groqSummary = await generateSummaryWithGroq(entries);
+      summary = groqSummary.summary;
+      moodTrend = groqSummary.moodTrend;
+      wins = groqSummary.wins;
+      challenges = groqSummary.challenges;
+      provider = "groq";
     } catch (error) {
       fallbackReason =
-        error instanceof Error ? error.message : "Gemini gặp lỗi không xác định.";
+        error instanceof Error ? error.message : "Groq gặp lỗi không xác định.";
     }
   } else {
     fallbackReason = "Bạn đang chọn chế độ summary miễn phí.";

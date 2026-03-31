@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Manrope, Playfair_Display } from "next/font/google";
-import HistoryNav from "@/app/ui/history-nav";
+import BreadcrumbNav from "@/app/ui/breadcrumb-nav";
+import PageTransition from "@/app/ui/page-transition";
 import "./globals.css";
 
 const bodySans = Manrope({
@@ -39,8 +40,8 @@ export default function RootLayout({
       className={`${bodySans.variable} ${displaySerif.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
-        <HistoryNav />
+        <BreadcrumbNav />
+        <PageTransition>{children}</PageTransition>
       </body>
     </html>
   );

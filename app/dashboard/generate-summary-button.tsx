@@ -10,7 +10,7 @@ const initialState = {
 };
 
 type Props = {
-  hasGeminiKey: boolean;
+  hasGroqKey: boolean;
   latestSummaryCreatedAt?: string;
 };
 
@@ -24,30 +24,29 @@ async function actionState(_: typeof initialState, formData: FormData) {
   try {
     const result = await generateWeeklySummary(formData);
 
-    if (result?.provider === "gemini") {
+    if (result?.provider === "groq") {
       return {
         error: "",
-        success: "Weekly summary đã được tạo xong. Đang dùng Gemini.",
+        success: "Tổng hợp tuần đã được tạo xong. Đang dùng Groq.",
         hint: "",
       };
     }
 
-    if (result?.preferredProvider === "gemini") {
+    if (result?.preferredProvider === "groq") {
       return {
         error: "",
-        success: "Weekly summary đã được tạo xong. Đang fallback về rule-based.",
+        success: "Tổng hợp tuần đã được tạo xong. Đang chuyển sang chế độ miễn phí.",
         hint: result?.fallbackReason ?? "",
       };
     }
 
     return {
       error: "",
-      success: "Weekly summary đã được tạo xong. Đang dùng summary miễn phí.",
+      success: "Tổng hợp tuần đã được tạo xong. Đang dùng chế độ miễn phí.",
       hint: result?.fallbackReason ?? "",
     };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Không thể tạo weekly summary lúc này.";
+    const message = error instanceof Error ? error.message : "Không thể tạo tổng hợp tuần lúc này.";
 
     return {
       error: message,
@@ -58,12 +57,12 @@ async function actionState(_: typeof initialState, formData: FormData) {
 }
 
 export default function GenerateSummaryButton({
-  hasGeminiKey,
+  hasGroqKey,
   latestSummaryCreatedAt,
 }: Props) {
   const [state, formAction, isPending] = useActionState(actionState, initialState);
-  const [provider, setProvider] = useState<"gemini" | "rule-based">(
-    hasGeminiKey ? "gemini" : "rule-based",
+  const [provider, setProvider] = useState<"groq" | "rule-based">(
+    hasGroqKey ? "groq" : "rule-based",
   );
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(() => {
     if (!latestSummaryCreatedAt) {
@@ -112,13 +111,13 @@ export default function GenerateSummaryButton({
     [cooldownUntil, remainingSeconds],
   );
 
-  const isGeminiDisabled = !hasGeminiKey;
+  const isGroqDisabled = !hasGroqKey;
 
   return (
     <form action={formAction} className="mt-5">
       <div className="rounded-[22px] bg-[rgba(255,251,245,0.74)] px-4 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
-          Cách tạo summary
+          Cách tạo tổng hợp tuần
         </p>
         <div className="mt-3 flex flex-wrap gap-3">
           <label className="flex items-center gap-2 text-sm text-[#4f463f]">
@@ -134,30 +133,30 @@ export default function GenerateSummaryButton({
           </label>
 
           <label
-            className={`flex items-center gap-2 text-sm ${isGeminiDisabled ? "text-[#b1a79a]" : "text-[#4f463f]"}`}
+            className={`flex items-center gap-2 text-sm ${isGroqDisabled ? "text-[#b1a79a]" : "text-[#4f463f]"}`}
           >
             <input
               type="radio"
               name="provider"
-              value="gemini"
-              checked={provider === "gemini"}
-              onChange={() => setProvider("gemini")}
-              disabled={isGeminiDisabled}
+              value="groq"
+              checked={provider === "groq"}
+              onChange={() => setProvider("groq")}
+              disabled={isGroqDisabled}
               className="h-4 w-4 accent-[#7a8c73]"
             />
-            Dùng Gemini
+            Dùng Groq
           </label>
         </div>
 
-        {!hasGeminiKey ? (
+        {!hasGroqKey ? (
           <p className="mt-3 text-xs leading-6 text-[#8a5e48]">
-            Chưa có GEMINI_API_KEY, nên lúc này chỉ dùng được chế độ miễn phí.
+            Chưa có GROQ_API_KEY, nên lúc này chỉ dùng được chế độ miễn phí.
           </p>
         ) : null}
 
         {isCoolingDown ? (
           <p className="mt-3 text-xs leading-6 text-[var(--muted)]">
-            Cooldown đang bật. Bạn có thể tạo lại summary sau {formatSeconds(remainingSeconds)}.
+            Cooldown đang bật. Bạn có thể tạo lại tổng hợp sau {formatSeconds(remainingSeconds)}.
           </p>
         ) : null}
       </div>
@@ -168,10 +167,10 @@ export default function GenerateSummaryButton({
         className="accent-button mt-4 rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isPending
-          ? "Đang tạo summary..."
+          ? "Đang tạo tổng hợp..."
           : isCoolingDown
             ? `Chờ ${formatSeconds(remainingSeconds)}`
-            : "Tạo weekly summary"}
+            : "Tạo tổng hợp tuần"}
       </button>
 
       {state.error ? (
@@ -187,9 +186,9 @@ export default function GenerateSummaryButton({
       ) : null}
 
       <p className="mt-3 text-xs leading-6 text-[var(--muted)]">
-        Nếu bạn đã thêm <span className="font-medium">GEMINI_API_KEY</span>, app sẽ ưu tiên
-        dùng Gemini để tạo summary. Nếu chưa có key hoặc Gemini tạm lỗi, app vẫn sẽ tự
-        fallback về summary miễn phí theo rule-based.
+        Nếu bạn đã thêm <span className="font-medium">GROQ_API_KEY</span>, app sẽ ưu tiên
+        dùng Groq để tạo tổng hợp tuần. Nếu chưa có key hoặc Groq tạm lỗi, app vẫn sẽ tự
+        chuyển sang chế độ miễn phí theo rule-based.
       </p>
     </form>
   );

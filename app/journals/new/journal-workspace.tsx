@@ -64,34 +64,24 @@ type JournalWorkspaceProps = {
   initialSettings: JournalWorkspaceSettings;
 };
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error("Khong doc duoc anh nen."));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Khong doc duoc file."));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImage(dataUrl: string) {
+function loadImage(file: File) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Khong tai duoc anh."));
-    image.src = dataUrl;
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Khong tai duoc anh."));
+    };
+    image.src = objectUrl;
   });
 }
 
 async function optimizeBackgroundImage(file: File) {
-  const rawDataUrl = await readFileAsDataUrl(file);
-  const image = await loadImage(rawDataUrl);
+  const image = await loadImage(file);
   const maxDimension = 1440;
   const scale = Math.min(
     1,
@@ -105,12 +95,41 @@ async function optimizeBackgroundImage(file: File) {
   const context = canvas.getContext("2d");
 
   if (!context) {
-    return rawDataUrl;
+    return file;
   }
 
   context.drawImage(image, 0, 0, width, height);
 
-  return canvas.toDataURL("image/webp", 0.8);
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/webp", 0.8);
+  });
+
+  if (!blob) {
+    return file;
+  }
+
+  return new File([blob], `journal-background-${Date.now()}.webp`, {
+    type: "image/webp",
+  });
+}
+
+async function uploadBackgroundImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/journal-workspace-background", {
+    method: "POST",
+    body: formData,
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string; url?: string }
+    | null;
+
+  if (!response.ok || !payload?.url) {
+    throw new Error(payload?.error ?? "Khong tai anh nen len duoc.");
+  }
+
+  return payload.url;
 }
 
 function ToolbarSegmented<T extends string>({
@@ -410,6 +429,7 @@ export default function JournalWorkspace({
   );
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isMobileToolbarOpen, setIsMobileToolbarOpen] = useState(false);
+  const [isUploadingBackground, setIsUploadingBackground] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("saved");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
 
@@ -574,18 +594,30 @@ export default function JournalWorkspace({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => {
+        onChange={async (e) => {
           const file = e.target.files?.[0];
+          e.currentTarget.value = "";
+
           if (!file) return;
-          optimizeBackgroundImage(file)
-            .then((result) => {
-              setBackgroundImage(result);
-            })
-            .catch(() => {
-              void readFileAsDataUrl(file).then((result) => {
-                setBackgroundImage(result);
-              });
-            });
+
+          setSaveErrorMessage("");
+          setIsUploadingBackground(true);
+          setSaveState("saving");
+
+          try {
+            const optimizedFile = await optimizeBackgroundImage(file);
+            const uploadedUrl = await uploadBackgroundImage(optimizedFile);
+            setBackgroundImage(uploadedUrl);
+          } catch (error) {
+            setSaveState("error");
+            setSaveErrorMessage(
+              error instanceof Error
+                ? error.message
+                : "Khong tai duoc anh nen len Storage.",
+            );
+          } finally {
+            setIsUploadingBackground(false);
+          }
         }}
       />
 
@@ -595,7 +627,7 @@ export default function JournalWorkspace({
             darkMode={themeMode === "dark"}
             themeMode={themeMode}
             writingMode={writingMode}
-            isSaving={saveState === "saving"}
+            isSaving={saveState === "saving" || isUploadingBackground}
             saveLabel={saveStatusLabel}
             fileInputRef={fileInputRef}
             onComposeNew={() => router.push("/journals/new")}
@@ -628,7 +660,7 @@ export default function JournalWorkspace({
               darkMode={themeMode === "dark"}
               themeMode={themeMode}
               writingMode={writingMode}
-              isSaving={saveState === "saving"}
+              isSaving={saveState === "saving" || isUploadingBackground}
               saveLabel={saveStatusLabel}
               fileInputRef={fileInputRef}
               onComposeNew={() => {
